@@ -3,7 +3,7 @@
     mimic record            start the proxy + print iPhone setup steps
     mimic hosts             list captured hosts (pick your API host here)
     mimic learn <host>      show the endpoints mimic saw for a host
-    mimic gen <host>        AI-write a Python client for a host
+    mimic gen <host>        AI-write a Python client for a host (claude or opencode)
     mimic unpin <ipa|id>    defeat cert pinning (Frida) so capture works
     mimic doctor            check your setup
 """
@@ -93,8 +93,9 @@ def cmd_doctor(args):
     print("mimic setup check:\n")
     check("proxy (mitmweb or uvx)", _mitmweb_cmd() is not None,
           "install uv: curl -LsSf https://astral.sh/uv/install.sh | sh")
-    check("claude CLI (for `mimic gen`)", shutil.which("claude") is not None,
-          "install Claude Code, or use `mimic gen --prompt-only`")
+    check("AI generator (claude or opencode)",
+          shutil.which("claude") is not None or shutil.which("opencode") is not None,
+          "install Claude Code or OpenCode (https://opencode.ai), or use `mimic gen --prompt-only`")
     reachable = False
     try:
         mitm.Mitm().flows()
@@ -154,8 +155,8 @@ def cmd_gen(args):
         return
 
     out = args.out or _default_out(args.host)
-    print(f"asking claude to write a client from {len(eps)} endpoints…", file=sys.stderr)
-    source = codegen.generate(args.host, eps, model=args.model)
+    print(f"asking {args.generator} to write a client from {len(eps)} endpoints…", file=sys.stderr)
+    source = codegen.generate(args.host, eps, model=args.model, generator=args.generator)
     with open(out, "w") as f:
         f.write(source)
     cls = _class_name(source)
@@ -191,8 +192,10 @@ def main(argv=None):
     gp = sub.add_parser("gen", help="AI-generate a client for a host")
     gp.add_argument("host")
     gp.add_argument("-o", "--out", help="output .py path")
-    gp.add_argument("--model", default="sonnet", help="claude model (default: sonnet)")
-    gp.add_argument("--prompt-only", action="store_true", help="print the prompt instead of calling claude")
+    gp.add_argument("--model", default="sonnet", help="model name (claude default: sonnet; ignored for opencode)")
+    gp.add_argument("--generator", default="claude", choices=["claude", "opencode"],
+                    help="AI generator to use (default: claude)")
+    gp.add_argument("--prompt-only", action="store_true", help="print the prompt instead of calling the AI generator")
     gp.set_defaults(func=cmd_gen)
 
     up = sub.add_parser("unpin", help="defeat cert pinning via Frida so capture works")
