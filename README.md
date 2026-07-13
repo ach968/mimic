@@ -5,38 +5,40 @@ Intercept any app, then call it from Python like a library.
 ```python
 from hinge_client import Hinge
 
-acc = Hinge()                 # reuses your captured session — no keys to wire up
+acc = Hinge()                 # reuses your captured session
 recs = acc.get_recommendations()
 acc.like(subject_id, comment="hi lol")
 ```
 
-You never wrote `hinge_client.py`. mimic watched your own app traffic and an AI
-wrote the client for you.
+You don't write `hinge_client.py`. mimic captures your own app traffic and an AI
+generates the client from it.
 
 ## How it works
 
-Every app authenticates each request with a stable bundle — a bearer token,
-device ids, a session id, cookies. Capture that once from a real request **you**
-made, and you can craft new calls the server can't tell apart from the real app.
+Most apps authenticate every request with the same bundle of values: a bearer
+token, some device ids, a session id, cookies. They're stable across calls.
+Capture them once from a real request you made, and you can replay them on new
+requests to the same API.
 
 ```
-capture your traffic  ─▶  extract your reusable auth  ─▶  AI writes the client
-     (mitmproxy)              (mimic.Session)              (claude reads the
-                                                            captured endpoints)
+capture traffic   ->   extract auth   ->   generate client
+  (mitmproxy)         (mimic.Session)      (claude reads the
+                                            captured endpoints)
 ```
 
-The generated client is plain, editable Python on top of `mimic.App`. It gets
-the ergonomic parts right — named methods, body templates, and the multi-step
-chaining mobile APIs need (fetch a token here, spend it there).
+The generated client is plain Python on top of `mimic.App`, and you edit it like
+any other file. It gives you named methods, body templates, and the multi-step
+call chaining mobile APIs tend to need (fetch a token in one call, spend it in
+the next).
 
-## Install (one command)
+## Install
 
 ```bash
 sh install.sh
 ```
 
 Installs [`uv`](https://astral.sh/uv) if you don't have it, then mimic in an
-isolated tool env. No separate mitmproxy install — mimic launches it for you via
+isolated tool env. mitmproxy isn't a separate install; mimic launches it via
 `uvx` on first `record`. (Manual: `uv tool install mimic-client`.)
 
 ```bash
@@ -46,15 +48,15 @@ mimic doctor                    # confirm proxy + claude are ready
 ## Use it (iPhone)
 
 ```bash
-mimic record                    # starts the proxy, prints the exact iPhone steps
+mimic record                    # starts the proxy, prints the iPhone steps
 ```
 
-`record` walks you through it and auto-fills your Mac's LAN IP:
+`record` fills in your Mac's LAN IP and walks you through it:
 
-1. iPhone → Wi-Fi → Configure Proxy → Manual → `<your-mac-ip>:8080`
-2. Safari → `http://mitm.it` → install the Apple profile
-3. **Settings → General → About → Certificate Trust Settings → turn on full
-   trust for mitmproxy** — the step everyone forgets
+1. iPhone -> Wi-Fi -> Configure Proxy -> Manual -> `<your-mac-ip>:8080`
+2. Safari -> `http://mitm.it` -> install the Apple profile
+3. Settings -> General -> About -> Certificate Trust Settings -> turn on full
+   trust for mitmproxy. This step is easy to miss and nothing works without it.
 4. open the app, use it normally
 
 Then:
@@ -62,7 +64,7 @@ Then:
 ```bash
 mimic hosts                     # list captured hosts; pick your API host
 mimic learn  prod-api.hingeaws.net    # see the endpoints mimic saw
-mimic gen    prod-api.hingeaws.net    # AI writes hinge_client.py
+mimic gen    prod-api.hingeaws.net    # generate hinge_client.py
 ```
 
 Then `from hinge_client import Hinge; Hinge().get_recommendations()`.
@@ -79,26 +81,36 @@ Session.from_curl(open("copied.txt").read())      # paste "Copy as cURL" from de
 Session(base_url="https://x.com", headers={...})  # explicit
 ```
 
-`.get(path)` / `.post(path, json=...)` return parsed JSON and auto-refresh your
-token from mitmweb if it rotates (a `401`/`403` triggers one re-pull + retry).
+`.get(path)` and `.post(path, json=...)` return parsed JSON. If your token
+rotates, a `401`/`403` triggers one re-pull from mitmweb and a retry.
 
 ## Capture backends
 
-- **mitmproxy** — iOS apps (the default). mimic reads its JSON flow API and runs
-  it for you via `uvx`, so there's nothing extra to install.
-- **cURL / paste** — anything with a web version. `Copy as cURL` in devtools →
-  `Session.from_curl(text)`. No proxy, no cert.
+- **mitmproxy** for iOS apps (the default). mimic reads its JSON flow API and
+  runs it via `uvx`, so there's nothing extra to install.
+- **cURL / paste** for anything with a web version. `Copy as cURL` in devtools,
+  then `Session.from_curl(text)`. No proxy, no cert.
 
-**Certificate pinning** (banking, Instagram) defeats a plain proxy, so pinned
-apps aren't supported. Plenty of apps aren't pinned and just work — if
-`mimic hosts` shows the app's API host, you're set.
+## Limitations
+
+Two auth schemes defeat this by design:
+
+- **Certificate pinning** (banking, Instagram). The app rejects the mitmproxy
+  cert, so the proxy never sees the traffic and nothing shows up in
+  `mimic hosts`. Getting past it needs runtime patching (Frida-class), which is
+  out of scope here.
+- **DPoP / sender-constrained tokens.** Each request carries a fresh proof
+  signed by a private key that never leaves the device. Captured proofs are
+  single-use and bound to one method + URL, so replaying them fails.
+
+If `mimic hosts` shows the app's API host, you're good.
 
 ## Ethics
 
-Use it on **your own** accounts and data. It replays *your* session; it is not a
-tool for accessing anyone else's. Respect each app's terms of service.
+Use it on your own accounts and data. It replays your session; it is not a tool
+for accessing anyone else's. Respect each app's terms of service.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Provided as-is, no warranty. Use on your own
+MIT, see [LICENSE](LICENSE). Provided as-is, no warranty. Use on your own
 accounts and data; you are responsible for complying with each app's terms.
