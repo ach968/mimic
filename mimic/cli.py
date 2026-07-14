@@ -93,6 +93,9 @@ def cmd_doctor(args):
     print("mimic setup check:\n")
     check("proxy (mitmweb or uvx)", _mitmweb_cmd() is not None,
           "install uv: curl -LsSf https://astral.sh/uv/install.sh | sh")
+    check("AI generator (claude or opencode)",
+          shutil.which("claude") is not None or shutil.which("opencode") is not None,
+          "install Claude Code or OpenCode (https://opencode.ai), or use `mimic gen --prompt-only`")
     reachable = False
     try:
         mitm.Mitm().flows()
