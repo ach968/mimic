@@ -1,7 +1,7 @@
-"""Turn captured endpoints into an ergonomic Python client, using the AI.
+"""Turn captured endpoints into an ergonomic Python client, using an AI.
 
-`mimic gen <host>` builds a digest of what mimic saw on the wire and pipes it
-to `claude -p` (Claude Code, headless). Claude writes a real, editable client
+`mimic gen <host>` builds a digest of what mimic saw on the wire and sends it
+to an AI generator. The AI writes a real, editable client
 class — named methods, body templates, response handling, and the multi-step
 chaining that mobile APIs often need — on top of mimic.App.
 """
@@ -57,25 +57,31 @@ def build_prompt(host, endpoints):
     return PROMPT.format(host=host, digest=build_digest(endpoints))
 
 
-def generate(host, endpoints, model="sonnet"):
-    """Run `claude -p` on the prompt and return the generated Python source."""
+def generate(host, endpoints, model="sonnet", generator="claude"):
+    """Run the AI generator on the prompt and return the generated Python source."""
     prompt = build_prompt(host, endpoints)
     try:
-        proc = subprocess.run(
-            ["claude", "-p", "--model", model],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
+        if generator == "opencode":
+            proc = subprocess.run(
+                ["opencode", "run", prompt],
+                capture_output=True, text=True, timeout=300,
+            )
+        else:
+            proc = subprocess.run(
+                ["claude", "-p", "--model", model],
+                input=prompt, capture_output=True, text=True, timeout=300,
+            )
     except FileNotFoundError:
-        sys.exit("`claude` CLI not found — install Claude Code, or run `mimic gen --prompt-only` and paste the prompt yourself")
+        sys.exit(
+            f"`{generator}` CLI not found — install it, "
+            "or use `mimic gen --prompt-only`"
+        )
     if proc.returncode != 0:
-        sys.exit(f"claude -p failed:\n{proc.stderr}")
+        sys.exit(f"{generator} failed:\n{proc.stderr}")
     return _strip_fences(proc.stdout)
 
 
 def _strip_fences(text):
-    """Claude sometimes wraps output in ```python fences despite instructions."""
+    """AI generators sometimes wrap output in ```python fences."""
     m = re.search(r"```(?:python)?\n(.*?)```", text, re.S)
     return (m.group(1) if m else text).strip() + "\n"
