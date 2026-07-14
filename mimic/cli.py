@@ -3,7 +3,7 @@
     mimic record            start the proxy + print iPhone setup steps
     mimic hosts             list captured hosts (pick your API host here)
     mimic learn <host>      show the endpoints mimic saw for a host
-    mimic gen <host>        AI-write a Python client for a host (claude or opencode)
+    mimic gen <host>        AI-write a Python client for a host
     mimic unpin <ipa|id>    defeat cert pinning (Frida) so capture works
     mimic doctor            check your setup
 """
@@ -93,9 +93,6 @@ def cmd_doctor(args):
     print("mimic setup check:\n")
     check("proxy (mitmweb or uvx)", _mitmweb_cmd() is not None,
           "install uv: curl -LsSf https://astral.sh/uv/install.sh | sh")
-    check("AI generator (claude or opencode)",
-          shutil.which("claude") is not None or shutil.which("opencode") is not None,
-          "install Claude Code or OpenCode (https://opencode.ai), or use `mimic gen --prompt-only`")
     reachable = False
     try:
         mitm.Mitm().flows()
@@ -192,7 +189,7 @@ def main(argv=None):
     gp = sub.add_parser("gen", help="AI-generate a client for a host")
     gp.add_argument("host")
     gp.add_argument("-o", "--out", help="output .py path")
-    gp.add_argument("--model", default="sonnet", help="model name (claude default: sonnet; ignored for opencode)")
+    gp.add_argument("--model", default="sonnet", help="model name (claude default: sonnet)")
     gp.add_argument("--generator", default="claude", choices=["claude", "opencode"],
                     help="AI generator to use (default: claude)")
     gp.add_argument("--prompt-only", action="store_true", help="print the prompt instead of calling the AI generator")

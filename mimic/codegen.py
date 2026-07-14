@@ -1,7 +1,7 @@
 """Turn captured endpoints into an ergonomic Python client, using an AI.
 
 `mimic gen <host>` builds a digest of what mimic saw on the wire and sends it
-to an AI generator (claude or opencode). The AI writes a real, editable client
+to an AI generator. The AI writes a real, editable client
 class — named methods, body templates, response handling, and the multi-step
 chaining that mobile APIs often need — on top of mimic.App.
 """
